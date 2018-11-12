@@ -95,13 +95,13 @@ def getMirnovInt(sdasClient, shot_, correctWO='None', correctPol=True):
             if coilNr in [1,2,4,11]:
                 coilData=-coilData #reverse polarity
 #        coilNr +=1
-        if shot_ > 44078:     #  5 September moduels correctio , from 1.0/11.0 to 10.0/11.0  
+        if shot_ > 44078:     #  5 September moduels correctio , from 1.0/11.0 to 10.0/11.0
             data.append(coilData * 0.85e-10 /10.0 ) # Return values in V.s units
         else:
             data.append(coilData * 0.85e-10 ) # Return values in V.s units
         slp = slp / decimateMARTe # in LSB
         slopes.append(slp)
-    
+
     #slpf= np.array(slopes)
     #print(np.array2string(slpf, precision=4))
     #print(slopes)
@@ -201,7 +201,7 @@ def plotAllPoloid(times_, dataArr, show=True, title='',  ylim=0.0):
     """
     PLOTS ALL DATA FROM MIRNOVS in a poloidal arragment similar to Mirnov positions
     Args
-    
+
     """
     #plt.figure()
     fig, axs = plt.subplots(4, 4, sharex=True)
@@ -233,6 +233,46 @@ def plotAllPoloid(times_, dataArr, show=True, title='',  ylim=0.0):
 
     if show:
         plt.show()
+
+#FOR TWO LINES
+def plotAllPoloid2(times_, dataArr1, dataArr2, show=True, title='',  ylim=0.0):
+    """
+    PLOTS ALL DATA FROM MIRNOVS in a poloidal arragment similar to Mirnov positions
+    Args
+
+    """
+    #plt.figure()
+    fig, axs = plt.subplots(4, 4, sharex=True)
+    coilNr=0
+    fig.suptitle(title)
+   # ax=[]
+    #ylim=2.0e6 # Y Axis limit
+    #pltOrder = (11, )
+    pltRow =    (2, 3,3,3,3, 2 , 1, 0,0,0,0, 1 )
+    pltColumn = (3, 3,2,1,0, 0 , 0, 0,1,2,3, 3 )
+   # pltColumn = (11, )
+    axs[0,0].set_title('8')
+    axs[0,3].set_title('11')
+    axs[1,1].axis('off')
+    axs[1,2].axis('off')
+    axs[2,2].axis('off')
+    axs[2,1].axis('off')
+#    for coil in data_:
+    for i in range(dataArr1.shape[0]):
+        ax=axs[pltRow[coilNr], pltColumn[coilNr]]
+#        axs[pltRow[coilNr], pltColumn[coilNr]].plot(times_*1e-3, coil)
+        ax.plot(times_*1e-3, dataArr1[i,:])
+        ax.plot(times_*1e-3, dataArr2[i,:])
+        ax.ticklabel_format(style='sci',axis='y', scilimits=(0,0))
+        ax.grid(True)
+        if ylim >0.0:
+            ax.set_ylim([-ylim, ylim])
+        coilNr+=1
+        #ax.set_title(str(coilNr))
+
+    if show:
+        plt.show()
+
 
 #PLOTS ONE MIRNOV
 def plotMirnov(times_, data_, show=True, title=''):
