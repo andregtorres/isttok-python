@@ -27,48 +27,82 @@ Zprb =Rmirn * np.sin(tethaPrb)
 RPfcVer =[0.58, 0.58, 0.35, 0.35]
 ZPfcVer =[0.07, -0.07, 0.07, -0.07]
 TurnsPfcVer=[-5., -5., 5., 5.]
+IgainVert=1.
+
 #Horizontal Coils: 2 coils , 4 turns, R1,2=58 [cm],z=±7[cm]
 RPfcHor =[0.58, 0.58,]
 ZPfcHor =[0.07, -0.07]
 TurnsPfcHor=[4., -4.]
+IgainHor=1.
 
 #Primary Coils: 2 coils , 14 turns, R1,2=62 [cm],z=±13[cm]
 RPfcPrim =[0.62, 0.62,]
 ZPfcPrim =[0.13, -0.13]
 TurnsPfcPrim=[14., 14.]
-
+IgainPrim=1.
 
 isttok_mag = {'RM': RM, 'rm': rm, 'Rmirn': Rmirn , 'Rcopper': 0.105, 'nPrb':nPrb, \
           'tethaPrb':tethaPrb, 'Rprb':Rprb , 'Zprb':Zprb, \
           'RPfcVer':RPfcVer, 'ZPfcVer':ZPfcVer, 'TurnsPfcVer':TurnsPfcVer, \
           'RPfcHor':RPfcHor, 'ZPfcHor':ZPfcHor, 'TurnsPfcHor':TurnsPfcHor, \
-          'RPfcPrim':RPfcPrim, 'ZPfcPrim':ZPfcPrim, 'TurnsPfcPrim':TurnsPfcPrim }
+          'RPfcPrim':RPfcPrim, 'ZPfcPrim':ZPfcPrim, 'TurnsPfcPrim':TurnsPfcPrim,\
+          'IgainVert': IgainVert, 'IgainHor': IgainHor, 'IgainPrim': IgainPrim }
 
 def toM (A):
     return [a*1e-2 for a in A]
 
-#Optimized positions
+#Optimized positions 1
 #Vertical Coils: 4 coils, 5 turns, R1,2=58 [cm],R2,3=35 [cm],z=±7 [cm]
 
 RPfcVer =toM([55.1,55.4,38.5,37.2])
 ZPfcVer =toM([-13.2,16.7,-15.2,12.7])
 TurnsPfcVer=[-5., -5., 5., 5.]
+IgainVert=1.
 
 #Horizontal Coils: 2 coils , 4 turns, R1,2=58 [cm],z=±7[cm]
 RPfcHor =toM([54.4,54.5])
 ZPfcHor =toM([-10.8,13.4])
 TurnsPfcHor=[4., -4.]
+IgainHor=1.
 
 #Primary Coils: 2 coils , 14 turns, R1,2=62 [cm],z=±13[cm]
 RPfcPrim =toM([61.5,61.5])
 ZPfcPrim =toM([-14.4,14.5])
 TurnsPfcPrim=[14., 14.]
+IgainPrim=1.
 
 isttok_mag_1 = {'RM': RM, 'rm': rm, 'Rmirn': Rmirn , 'Rcopper': 0.105, 'nPrb':nPrb, \
           'tethaPrb':tethaPrb, 'Rprb':Rprb , 'Zprb':Zprb, \
           'RPfcVer':RPfcVer, 'ZPfcVer':ZPfcVer, 'TurnsPfcVer':TurnsPfcVer, \
           'RPfcHor':RPfcHor, 'ZPfcHor':ZPfcHor, 'TurnsPfcHor':TurnsPfcHor, \
-          'RPfcPrim':RPfcPrim, 'ZPfcPrim':ZPfcPrim, 'TurnsPfcPrim':TurnsPfcPrim }
+          'RPfcPrim':RPfcPrim, 'ZPfcPrim':ZPfcPrim, 'TurnsPfcPrim':TurnsPfcPrim, \
+          'IgainVert': IgainVert, 'IgainHor': IgainHor, 'IgainPrim': IgainPrim}
+
+#Optimized positions 2
+#Vertical Coils: 4 coils, 5 turns, R1,2=58 [cm],R2,3=35 [cm],z=±7 [cm]
+RPfcVer =toM([55.4752,52.6368,39.05,38.027])
+ZPfcVer =toM([-11.25,12.6782,-12.0378,10.8862])
+TurnsPfcVer=[-5., -5., 5., 5.]
+IgainVert=1.3852
+
+#Horizontal Coils: 2 coils , 4 turns, R1,2=58 [cm],z=±7[cm]
+RPfcHor =toM([55.9,53.8])
+ZPfcHor =toM([-10.0,14.2])
+TurnsPfcHor=[4., -4.]
+IgainHor=1.324
+
+#Primary Coils: 2 coils , 14 turns, R1,2=62 [cm],z=±13[cm]
+RPfcPrim =toM([60.6,60.6])
+ZPfcPrim =toM([-14.1,13.9])
+TurnsPfcPrim=[14., 14.]
+IgainPrim=0.842
+
+isttok_mag_2 = {'RM': RM, 'rm': rm, 'Rmirn': Rmirn , 'Rcopper': 0.105, 'nPrb':nPrb, \
+          'tethaPrb':tethaPrb, 'Rprb':Rprb , 'Zprb':Zprb, \
+          'RPfcVer':RPfcVer, 'ZPfcVer':ZPfcVer, 'TurnsPfcVer':TurnsPfcVer, \
+          'RPfcHor':RPfcHor, 'ZPfcHor':ZPfcHor, 'TurnsPfcHor':TurnsPfcHor, \
+          'RPfcPrim':RPfcPrim, 'ZPfcPrim':ZPfcPrim, 'TurnsPfcPrim':TurnsPfcPrim, \
+          'IgainVert': IgainVert, 'IgainHor': IgainHor, 'IgainPrim': IgainPrim}
 
 
 def buildIs2Bpol(Vcoil, Hcoil=None, PrimCoil=None):
