@@ -23,7 +23,7 @@ import magnetic_flux_fields as mf
 # ISTTOK Geometric parameters
 from isttok_magnetics import isttok_mag, isttok_mag_1, isttok_mag_2
 from getSdasSignal import getSignal
-from getMirnov import FsamplingMARTe, ch_prim, getMirnovInt, plotAllPoloid, plotAllPoloid2
+from getMirnov import FsamplingMARTe, ch_prim, ch_hor, getMirnovInt, plotAllPoloid, plotAllPoloid2
 from StartSdas import StartSdas
 import keyboard
 
@@ -229,19 +229,22 @@ if __name__ == "__main__":
     #SDAS DATA
     client=StartSdas()
     shotP=44501
+    shotH=44330
     #%matplotlib qt4
-    times, mirnovs_P = getMirnovInt(client, shotP, 'Post')
-    timesp,I_prim, tbs = getSignal(client, ch_prim, shotP )
+    times, mirnovs = getMirnovInt(client, shotH, 'Post')
+    timesp,I_prim, tbs = getSignal(client, ch_prim, shotH)
+    timesh,I_hor, tbs = getSignal(client, ch_hor, shotH)
 
     np.set_printoptions(precision=3)
     currPrim = I_prim[10:]
+    currHor = I_hor[10:]
     nc = 15 # number of coppe2r shell 'wires'
 
     ResCopper = 1.0e-4 # 0.1 mOhm
     aCopper = 10.0e-3  # 'wire' radius 10 mm
 
     currVert = np.zeros_like(currPrim)
-    currHor=np.zeros_like(currPrim) # Zero current on Hori Field Coils
+    #currHor=np.zeros_like(currPrim) # Zero current on Hori Field Coils
 
     IsPfc = np.array([currVert, currHor, currPrim])
 
@@ -256,15 +259,15 @@ if __name__ == "__main__":
         elif a <340: return True
         else: return False
     # Copper passive 'filament ' positions
-    anglesdeg=np.array([ 22.,  51.429,  68.571, 110.   , 137.143, 154.286, 171.429,
-       188.571, 205.714, 222.857, 240.   , 257.143, 291.429, 338.,
-       325.714])
+    #anglesdeg=np.array([ 22.,  51.429,  68.571, 110.   , 137.143, 154.286, 171.429,
+    #   188.571, 205.714, 222.857, 240.   , 257.143, 291.429, 338.,
+    #   325.714])
     segments=[[20, 70],[ 110, 175],[ 180,265],[ 275, 340]]
     #angles = np.array([(i/(21*1.))*360 for i in range(21)])
     #anglesIc = np.asarray([angle for angle in angles if allowedAngle(angle)])
     #anglesIc = np.array([(i/(nc*1.))*2*np.pi for i in range(nc)])
-    anglesIc = np.radians(anglesdeg)
-
+    #anglesIc = np.radians(anglesIc)
+    #anglesIc
     time = times[10:]  #trim negative
     timeN=time/times[-1] # times normalize
 
@@ -277,10 +280,13 @@ if __name__ == "__main__":
     line3,=ax2.plot(isttok_mag['Rprb'],isttok_mag['Zprb'], "+")
     line4,=ax2.plot(IcPositions[0], IcPositions[1],"o")
 
+    #anglesPrim=np.array([ 22.,  51.429,  68.571, 110.   , 130, 154.286, 173, 185, 200, 220, 237., 260, 280, 320., 338])
+    #anglesPrim2=np.radians([ 21.108,  52.002,  70.863, 110.26,  143.445 ,153.14,  171.429, 187.426, 205.141, 219.419, 241.719, 263.445, 290.283, 309.717, 338.892])
 
-    anglesdeg=np.array([ 22.,  51.429,  68.571, 110.   , 130, 154.286, 173,
-       185, 200, 220, 237., 260, 280, 320.,
-       338])
-    anglesIc = np.radians(anglesdeg)
+     #anglesHor=np.radians([ 28.,  52,  69., 110., 118, 138.3, 165.0, 186, 195, 220.5, 232., 259, 276, 328., 333])
+
+    anglesIc=np.radians([ 21.108,  52.002,  70.863, 110.26,  143.445 ,153.14,  171.429, 187.426, 205.141, 219.419, 241.719, 263.445, 290.283, 309.717, 338.892])
+
+    #anglesIc = np.radians(anglesdeg)
     bPolTot2, IcPositions =fullModel(IsPfc, anglesIc, Rc, timeN)
-    plotAllPoloid2(time, np.asarray(mirnovs_P)[:,10:]*1e6, bPolTot2.T*1e6, show=True, title='',  ylim=11)
+    plotAllPoloid2(time, np.asarray(mirnovs)[:,10:]*1e6, bPolTot2.T*1e6, show=False, title='',  ylim=15)
