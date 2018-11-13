@@ -25,8 +25,9 @@ from isttok_magnetics import isttok_mag, isttok_mag_1, isttok_mag_2
 from getSdasSignal import getSignal
 from getMirnov import FsamplingMARTe, ch_prim, getMirnovInt, plotAllPoloid, plotAllPoloid2
 from StartSdas import StartSdas
+import keyboard
 
-def buildLtiModelB(RIc, ZIc, isttok_mag):
+def buildLtiModelB(RIc, ZIc, isttok_mag, Rc):
     """
     Build LTI system state model for a asissymetric Tokamak with passive conductors
     # State variable: Psi_c (Pol Flux at the eddy current positions)
@@ -56,7 +57,7 @@ def buildLtiModelB(RIc, ZIc, isttok_mag):
     # and active coils
     Mcs=np.zeros((nc,ns))
     # diagonal Resistance matrix Rc
-    Rc = np.diag([1.0]*nc) * ResCopper
+    #Rc = np.diag([1.0]*nc) * ResCopper
 
     #RIc = ISTTOK['Rcopper'] * np.ones(nc) # Major radius of shell 'wires'
     for i in range(nc):
@@ -170,11 +171,58 @@ def buildIc2Bpol(RIc, ZIc):
         Ic2Bpol[:,0] +=  bpol
 
     return Ic2Bpol
-0.0
-#        br,bz=Bloop(Rver[i], Zver[i], Rprb, zprb)
-#        BR += Turns[i]*br
-#        BZ += Turns[i]*bz
 
+#FOR TWO LINES
+def plotAllPoloid2(times_, dataArr1, dataArr2, show=True, title='',  ylim=0.0):
+    """
+    PLOTS ALL DATA FROM MIRNOVS in a poloidal arragment similar to Mirnov positions
+    Args
+
+    """
+    fig, axs = plt.subplots(4, 4, sharex=True)
+    plt.tight_layout()
+    coilNr=0
+    fig.suptitle(title)
+   # ax=[]
+    #ylim=2.0e6 # Y Axis limit
+    #pltOrder = (11, )
+    pltRow =    (2, 3,3,3,3, 2 , 1, 0,0,0,0, 1 )
+    pltColumn = (3, 3,2,1,0, 0 , 0, 0,1,2,3, 3 )
+   # pltColumn = (11, )
+    axs[0,0].set_title('8')
+    axs[0,3].set_title('11')
+    axs[1,1].axis('off')
+    axs[1,2].axis('off')
+    axs[2,2].axis('off')
+    axs[2,1].axis('off')
+
+    for i in range(dataArr1.shape[0]):
+        ax=axs[pltRow[coilNr], pltColumn[coilNr]]
+        ax.plot(times_*1e-3, dataArr1[i,:])
+        ax.plot(times_*1e-3, dataArr2[i,:])
+        ax.ticklabel_format(style='sci',axis='y', scilimits=(0,0))
+        ax.grid(True)
+        if ylim >0.0:
+            ax.set_ylim([-ylim, ylim])
+        coilNr+=1
+
+    if show:
+        plt.show()
+    #return fig,ax, line2
+
+
+def fullModel(IsPfc, angles, Rc, time):
+    Is2Bpol2=buildIs2BpolB(isttok_mag_2)
+    RIc = isttok_mag['RM'] + isttok_mag['Rcopper']  * np.cos(anglesIc)
+    ZIc = isttok_mag['Rcopper']  * np.sin(anglesIc)
+    A2,Bs2,C2,Ds2 = buildLtiModelB(RIc, ZIc,isttok_mag_2, Rc)
+    Ic2Bpol=buildIc2Bpol(RIc, ZIc)
+    magSys2 = signal.StateSpace(A2,Bs2,C2,Ds2)
+    bPolIs2=np.matmul(Is2Bpol2,IsPfc)
+    tout2, Ic2, x2 = signal.lsim(magSys2,IsPfc.T, time)
+    bPolIc2=np.matmul(Ic2Bpol,Ic2.T)
+    bPolTot2 = (bPolIs2.T +  bPolIc2.T)*50*49e-6
+    return bPolTot2, (RIc,ZIc)
 
 if __name__ == "__main__":
 
@@ -186,22 +234,12 @@ if __name__ == "__main__":
     timesp,I_prim, tbs = getSignal(client, ch_prim, shotP )
 
     np.set_printoptions(precision=3)
+    currPrim = I_prim[10:]
     nc = 15 # number of coppe2r shell 'wires'
 
     ResCopper = 1.0e-4 # 0.1 mOhm
     aCopper = 10.0e-3  # 'wire' radius 10 mm
 
-    Is2Bpol=buildIs2BpolB(isttok_mag)
-    Is2Bpol1=buildIs2BpolB(isttok_mag_1)
-    Is2Bpol2=buildIs2BpolB(isttok_mag_2)
-
-    # make heaviside current signal
-#    Imax = 157 #A
-#    n1=np.int(0.2*FsamplingMARTe)
-#    n2=np.int((0.6 -0.2 )*FsamplingMARTe)
-#    n3=np.int((1.0 -0.6 )*FsamplingMARTe)
-    #currPrim = np.concatenate([np.zeros(n1,), Imax*np.ones(n2,), np.zeros(n3,)])
-    currPrim = I_prim[10:]
     currVert = np.zeros_like(currPrim)
     currHor=np.zeros_like(currPrim) # Zero current on Hori Field Coils
 
@@ -218,111 +256,31 @@ if __name__ == "__main__":
         elif a <340: return True
         else: return False
     # Copper passive 'filament ' positions
+    anglesdeg=np.array([ 22.,  51.429,  68.571, 110.   , 137.143, 154.286, 171.429,
+       188.571, 205.714, 222.857, 240.   , 257.143, 291.429, 338.,
+       325.714])
     segments=[[20, 70],[ 110, 175],[ 180,265],[ 275, 340]]
-    angles = np.array([(i/(21*1.))*360 for i in range(21)])
-    anglesIc = np.asarray([angle for angle in angles if allowedAngle(angle)])
+    #angles = np.array([(i/(21*1.))*360 for i in range(21)])
+    #anglesIc = np.asarray([angle for angle in angles if allowedAngle(angle)])
     #anglesIc = np.array([(i/(nc*1.))*2*np.pi for i in range(nc)])
-    anglesIc = np.radians(anglesIc)
+    anglesIc = np.radians(anglesdeg)
 
-    RIc = isttok_mag['RM'] + isttok_mag['Rcopper']  * np.cos(anglesIc)
-    ZIc = isttok_mag['Rcopper']  * np.sin(anglesIc)
+    time = times[10:]  #trim negative
+    timeN=time/times[-1] # times normalize
 
-    plt.figure()
-    plt.plot(RIc,ZIc,"*")
-    plt.plot(isttok_mag['Rprb'],isttok_mag['Zprb'], "+")
-    plt.plot(isttok_mag['Rprb'][2],isttok_mag['Zprb'][2], "o")
+    # diagonal Resistance matrix Rc
+    Rc = np.diag([1.0]*nc) * ResCopper
+    bPolTot2, IcPositions =fullModel(IsPfc, anglesIc, Rc, timeN)
 
-    A,Bs,C,Ds = buildLtiModelB(RIc, ZIc, isttok_mag)
-    A1,Bs1,C1,Ds1 = buildLtiModelB(RIc, ZIc,isttok_mag_1)
-    A2,Bs2,C2,Ds2 = buildLtiModelB(RIc, ZIc,isttok_mag_2)
-
-    Ic2Bpol=buildIc2Bpol(RIc, ZIc)
-
-    magSys = signal.StateSpace(A,Bs,C,Ds)
-    magSys1 = signal.StateSpace(A1,Bs1,C1,Ds1)
-    magSys2 = signal.StateSpace(A2,Bs2,C2,Ds2)
-
-    #t,ic = signal.step(magSys)
-
-    # Stability
-    w, vect = np.linalg.eig(A)
-    w1, vect1 = np.linalg.eig(A1)
-
-    # Eigenvalues should all be negative
-    print('LTI system Eigenvalues:')
-    print(w)
-    print(w1)
-
-    bPolIs=np.matmul(Is2Bpol,IsPfc)
-    bPolIs1=np.matmul(Is2Bpol1,IsPfc)
-    bPolIs2=np.matmul(Is2Bpol2,IsPfc)
-    #time = np.arange(IsPfc.shape[1]) / FsamplingMARTe
-    time = times[10:]/times[-1] #trim negative times normalize
+    fig2=plt.figure()
+    ax2=fig2.add_subplot(111)
+    line3,=ax2.plot(isttok_mag['Rprb'],isttok_mag['Zprb'], "+")
+    line4,=ax2.plot(IcPositions[0], IcPositions[1],"o")
 
 
-    # scipy.signal.lsim(system, U, T, X0=None, interp=True)
-    #  U: If there are multiple inputs, then each column of the rank-2 array represents an input.
-
-    tout, Ic, x = signal.lsim(magSys,IsPfc.T, time)
-    tout1, Ic1, x1 = signal.lsim(magSys1,IsPfc.T, time)
-    tout2, Ic2, x2 = signal.lsim(magSys2,IsPfc.T, time)
-
-#    fig, ax = plt.subplots()
-#    linesIc = ax.plot(time, Ic)
-#    ax.legend(linesIc, ['ic0', 'ic1', 'ic2','ic3', 'ic4', 'ic5'], loc='best')
-# #   lineIsv = ax.plot(time, IsPfc[0,:])
-#    ax.set_xlabel('Time/s')0.0
-#    plt.show()
-#
-    bPolIc=np.matmul(Ic2Bpol,Ic.T)
-    bPolIc1=np.matmul(Ic2Bpol,Ic1.T)
-    bPolIc2=np.matmul(Ic2Bpol,Ic2.T)
-
-    bPolTot = (bPolIs.T +  bPolIc.T)*50*49e-6
-    bPolTot1 = (bPolIs1.T +  bPolIc1.T)*50*49e-6
-    bPolTot2 = (bPolIs2.T +  bPolIc2.T)*50*49e-6
-
+    anglesdeg=np.array([ 22.,  51.429,  68.571, 110.   , 130, 154.286, 173,
+       185, 200, 220, 237., 260, 280, 320.,
+       338])
+    anglesIc = np.radians(anglesdeg)
+    bPolTot2, IcPositions =fullModel(IsPfc, anglesIc, Rc, timeN)
     plotAllPoloid2(time, np.asarray(mirnovs_P)[:,10:]*1e6, bPolTot2.T*1e6, show=True, title='',  ylim=11)
-'''
-    for p in range(12):
-        fig, ax = plt.subplots()
-        linesMirnov= ax.plot(time, mirnovs_P[p][10:]*1e6, "-", label="Mirnov")
-        #linesBpol = ax.plot(time, bPolTot[:,3]*1e6, ":", label="Original Positions")
-        linesBpol1 = ax.plot(time, bPolTot1[:,p]*1e6, label="Optimized Positions")
-
-        #ax.legend(linesBpol, ['m0', 'm1', 'm2','m3', 'm4', 'm5','m6', \
-        #                         'm7', 'm8','m9', 'm10', 'm11'],loc='right')
-        #ax.legend(linesBpol1, ['m0', 'm1', 'm2','m3', 'm4', 'm5','m6', \
-        #                        'm7', 'm8','m9', 'm10', 'm11'],loc='best')
-        plt.legend()
-        ax.set_title('Probe response')
-        ax.set_xlabel('Time/s')
-        #ax.legend()
-        plt.show()
-%matplotlib qt4
-'''
-
-    #bPolIc=np.matmul(Is2Bpol,IsPfc)
-#    BR = 0.0
-#    BZ = 0.0
-#    for c in range(len(isttok_mag['RPfcVer'])):
-#        br,bz=mf.Bloop(isttok_mag['RPfcVer'][c], isttok_mag['ZPfcVer'][c], isttok_mag['Rprb'], isttok_mag['Zprb'])
-#        BR += isttok_mag['TurnsPfcVer'][c]*br
-#        BZ += isttok_mag['TurnsPfcVer'][c]*bz
-
-#    plt.figure()
-##    plt.plot(t2,y2,'g:',linewidth=2,label='State Space')
-#    lineObjects = plt.plot(t,ic,linewidth=1)
-#    plt.xlabel('Time/s')
-#    plt.ylabel('Response ((ic) /A ')
-#    plt.legend(lineObjects, ['ic0', 'ic1', 'ic2','ic3', 'ic4', 'ic5'],loc='best')
-#    plt.show()
-
-#    plt.figure()
-#    #
-#    lineObjs = plt.plot(t,np.matmul(ic,Bpolc) )
-#    plt.xlabel('Time/s')
-#    plt.ylabel('Bpol ')
-#    plt.legend(lineObjs, ['m0', 'm1', 'm2','m3', 'm4', 'm5','m6', \
-#                             'm7', 'm8','m9', 'm10', 'm11'],loc='right')
-#    plt.show()
