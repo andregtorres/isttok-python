@@ -23,11 +23,11 @@ import magnetic_flux_fields as mf
 # ISTTOK Geometric parameters
 from isttok_magnetics import isttok_mag, isttok_mag_1, isttok_mag_2
 from getSdasSignal import getSignal
-from getMirnov import FsamplingMARTe, ch_prim, getMirnovInt, plotAllPoloid, plotAllPoloid2
+from getMirnov import FsamplingMARTe, ch_prim, ch_hor, getMirnovInt, plotAllPoloid, plotAllPoloid2
 from StartSdas import StartSdas
 import keyboard
 
-def buildLtiModelB(RIc, ZIc, isttok_mag, Rc):
+def buildLtiModelB(RIc, ZIc, isttok_mag, Rc_):
     """
     Build LTI system state model for a asissymetric Tokamak with passive conductors
     # State variable: Psi_c (Pol Flux at the eddy current positions)
@@ -44,9 +44,10 @@ def buildLtiModelB(RIc, ZIc, isttok_mag, Rc):
 
     Returns:
     """
+    aCopper   = 10.0e-3  # 'wire' radius 10 mm
+    ResCopper = 1.68e-8  #1.0e-4 # 0.1 mOhm
+    Rc=Rc_*ResCopper*RIc/aCopper/aCopper*2.
 
-    ResCopper = 1.0e-4 # 0.1 mOhm
-    aCopper = 10.0e-3  # 'wire' radius 10 mm
     ns = 3 # number of active coil circuits
     nc= len(RIc)
 
@@ -56,10 +57,7 @@ def buildLtiModelB(RIc, ZIc, isttok_mag, Rc):
     # mutual inductance matrices of the elements of the passive structure
     # and active coils
     Mcs=np.zeros((nc,ns))
-    # diagonal Resistance matrix Rc
-    #Rc = np.diag([1.0]*nc) * ResCopper
 
-    #RIc = ISTTOK['Rcopper'] * np.ones(nc) # Major radius of shell 'wires'
     for i in range(nc):
         Mcc[i,i] = mf.selfLoop(RIc[i], aCopper)
         for j in range(i+1, nc):
@@ -212,6 +210,7 @@ def plotAllPoloid2(times_, dataArr1, dataArr2, show=True, title='',  ylim=0.0):
 
 
 def fullModel(IsPfc, angles, Rc, time):
+    ResCopper=1e-4
     Is2Bpol2=buildIs2BpolB(isttok_mag_2)
     RIc = isttok_mag['RM'] + isttok_mag['Rcopper']  * np.cos(anglesIc)
     ZIc = isttok_mag['Rcopper']  * np.sin(anglesIc)
@@ -222,28 +221,59 @@ def fullModel(IsPfc, angles, Rc, time):
     tout2, Ic2, x2 = signal.lsim(magSys2,IsPfc.T, time)
     bPolIc2=np.matmul(Ic2Bpol,Ic2.T)
     bPolTot2 = (bPolIs2.T +  bPolIc2.T)*50*49e-6
-    return bPolTot2, (RIc,ZIc)
+    return bPolTot2, (RIc,ZIc), Ic2
+
+def getClosestMirnov(R,Z):
+    imin=99
+    dmin=999
+    for i in range(12):
+        d2=(R-isttok_mag['Rprb'][i])**2 + (Z-isttok_mag['Zprb'][i])**2
+        if d2 < dmin:
+            dmin=d2
+            imin=i
+    return imin
+
+def getIcSignal(ic):
+    signals=[]
+    for i in ic.T:
+        if np.mean(i[0:2000]) < 0:
+            signals.append(False)
+        else:
+            signals.append(True)
+    return signals
 
 if __name__ == "__main__":
 
     #SDAS DATA
     client=StartSdas()
     shotP=44501
+    shotH=44330
     #%matplotlib qt4
     times, mirnovs_P = getMirnovInt(client, shotP, 'Post')
-    timesp,I_prim, tbs = getSignal(client, ch_prim, shotP )
+    times, mirnovs_H = getMirnovInt(client, shotH, 'Post')
+
+    timesp,Ip_prim, tbs = getSignal(client, ch_prim, shotP )
+    timesp,Ip_hor, tbs = getSignal(client, ch_hor, shotP )
+
+    timesh,Ih_prim, tbs = getSignal(client, ch_prim, shotH )
+    timesh,Ih_hor, tbs = getSignal(client, ch_hor, shotH)
 
     np.set_printoptions(precision=3)
-    nc = 15 # number of coppe2r shell 'wires'
 
-    ResCopper = 1.0e-4 # 0.1 mOhm
+
+    #ResCopper = 1.0e-4 # 0.1 mOhm
     aCopper = 10.0e-3  # 'wire' radius 10 mm
 
-    currPrim = I_prim[10:]
-    currVert = np.zeros_like(currPrim)
-    currHor=np.zeros_like(currPrim) # Zero current on Hori Field Coils
+    currPrim_P = Ip_prim[10:]
+    currHor_P=Ip_hor[10:]
+    currVert_P = np.zeros_like(currPrim_P)
 
-    IsPfc = np.array([currVert, currHor, currPrim])
+    currPrim_H  = Ih_prim[10:]
+    currHor_H   = Ih_hor[10:]
+    currVert_H  = np.zeros_like(currPrim_H)
+
+    IsPfc_P = np.array([currVert_P, currHor_P, currPrim_P])
+    IsPfc_H = np.array([currVert_H, currHor_H, currPrim_H])
 
     def allowedAngle(a):
         if a <20: return False
@@ -257,17 +287,27 @@ if __name__ == "__main__":
         else: return False
     # Copper passive 'filament ' positions
     segments=[[20, 70],[ 110, 175],[ 180,265],[ 275, 340]]
-    angles = np.array([(i/(21*1.))*360 for i in range(21)])
-    anglesIc = np.asarray([angle for angle in angles if allowedAngle(angle)])
+    #angles = np.array([(i/(21*1.))*360 for i in range(21)])
+    #anglesIc = np.asarray([angle for angle in angles if allowedAngle(angle)])
     #anglesIc = np.array([(i/(nc*1.))*2*np.pi for i in range(nc)])
+    anglesIc=[20,70,110,175,180,265,275,340]
     anglesIc = np.radians(anglesIc)
+    nc = len(anglesIc) # number of coppe2r shell 'wires'
 
-    time = times[10:]  #trim negative
-    timeN=time/times[-1] # times normalize
+    time_P = timesp[10:]  #trim negative
+    timeN_P=time_P/timesp[-1] # times normalize
+    time_H = timesh[10:]  #trim negative
+    timeN_H=time_H/timesh[-1] # times normalize
+
 
     # diagonal Resistance matrix Rc
-    Rc = np.diag([1.0]*nc) * ResCopper
-    bPolTot2, IcPositions =fullModel(IsPfc, anglesIc, Rc, timeN)
+    Rc = np.diag([1.0]*nc) #* ResCopper
+
+    bPolTot2_P, IcPositions_P, ic_P =fullModel(IsPfc_P, anglesIc, Rc, timeN_P)
+    bPolTot2_H, IcPositions_H, ic_H =fullModel(IsPfc_H, anglesIc, Rc, timeN_H)
+
+    directions_P=getIcSignal(ic_P)
+    directions_H=getIcSignal(ic_H)
 
     print("START")
     plt.ion()
@@ -275,35 +315,62 @@ if __name__ == "__main__":
     ax1=fig1.add_subplot(111)
     plt.tight_layout()
     line11,=ax1.plot(isttok_mag['Rprb'],isttok_mag['Zprb'], "+")
-    line12,=ax1.plot(IcPositions[0], IcPositions[1],"o")
-    line13,=ax1.plot(IcPositions[0][0], IcPositions[1][0],"og")
+    line12,=ax1.plot(IcPositions_P[0], IcPositions_P[1],"o")
+    line13,=ax1.plot(IcPositions_P[0][0], IcPositions_P[1][0],"og")
 
+    fil=0
+    closestMirnov=getClosestMirnov(IcPositions_P[0][fil],IcPositions_P[1][fil])
     fig2=[]
     ax2=[]
     line21=[]
     line22=[]
     dataArr1=np.asarray(mirnovs_P)[:,10:]*1e6
-    dataArr2=bPolTot2.T*1e6
-    for i in range(12):
+    dataArr2=bPolTot2_P.T*1e6
+    for i, k in zip(range(closestMirnov-1,closestMirnov+2),range(3)):
+        if i ==-1: i=11
+        if i == 12: i=0
         fig2.append(plt.figure())
-        ax2.append(fig2[i].add_subplot(111))
+        ax=fig2[k].add_subplot(1,1,1)
+        ax.set_ylim([-13,13])
+        ax2.append(ax)
         plt.tight_layout()
-        l21,=ax2[i].plot(time*1e-3, dataArr1[i,:])
-        l22,=ax2[i].plot(time*1e-3, dataArr2[i,:])
+        l21,=ax2[k].plot(time_P*1e-3, dataArr1[i,:])
+        l22,=ax2[k].plot(time_P*1e-3, dataArr2[i,:])
+        line21.append(l21)
         line22.append(l22)
 
-
-    #plotAllPoloid2(time, np.asarray(mirnovs_P)[:,10:]*1e6, bPolTot2.T*1e6, show=True, title='',  ylim=11)
-
     fil=0
+    fig3=[]
+    ax3=[]
+    line31=[]
+    line32=[]
+    dataArr1=np.asarray(mirnovs_H)[:,10:]*1e6
+    dataArr2=bPolTot2_H.T*1e6
+    for i, k in zip(range(closestMirnov-1,closestMirnov+2),range(3)):
+        if i ==-1: i=11
+        if i == 12: i=0
+        fig3.append(plt.figure())
+        ax=fig3[k].add_subplot(1,1,1)
+        ax.set_ylim([-13,13])
+        ax3.append(ax)
+        plt.tight_layout()
+        l31,=ax3[k].plot(time_H*1e-3, dataArr1[i,:])
+        l32,=ax3[k].plot(time_H*1e-3, dataArr2[i,:])
+        line31.append(l31)
+        line32.append(l32)
+
     while(1):
         key=keyboard.read_key()
         if key == "q":
             break
         elif key=="w":
             print("")
-            print (fil)
-            print (np.degrees(anglesIc))
+            print ("filament:", fil)
+            print ("angles:", np.degrees(anglesIc))
+            print ("Rc:", np.diag(Rc))
+            print ("directionsP:",directions_P)
+            print ("directionsH:",directions_H)
+
         elif key=="a":
             if fil <14:
                 fil+=1
@@ -314,21 +381,50 @@ if __name__ == "__main__":
             anglesIc[fil]+=0.01
         elif key=="x":
             anglesIc[fil]-=0.01
-        #elif key=="e":
-            #plotAllPoloid2(time, np.asarray(mirnovs_P)[:,10:]*1e6, bPolTot2.T*1e6, show=True, title='',  ylim=11)
+        elif key=="d":
+            anglesIc[fil]+=0.05
+        elif key=="c":
+            anglesIc[fil]-=0.05
+        elif key=="f":
+            Rc[fil][fil]+=0.05
+        elif key=="v":
+            Rc[fil][fil]-=0.05
 
-        bPolTot2, IcPositions =fullModel(IsPfc, anglesIc, Rc, timeN)
 
-        line12.set_xdata(IcPositions[0])
-        line12.set_ydata(IcPositions[1])
-        line13.set_xdata(IcPositions[0][fil])
-        line13.set_ydata(IcPositions[1][fil])
 
-        dataArr2=bPolTot2.T*1e6
-        for i in range(12):
-            line22[i].set_ydata(dataArr2[i,:])
-            fig2[i].canvas.draw()
-            fig2[i].canvas.flush_events()
+        bPolTot2_P, IcPositions_P, ic_P =fullModel(IsPfc_P, anglesIc, Rc, timeN_P)
+        bPolTot2_H, IcPositions_H, ic_H =fullModel(IsPfc_H, anglesIc, Rc, timeN_H)
+
+        directions_P=getIcSignal(ic_P)
+        directions_H=getIcSignal(ic_H)
+
+        closestMirnov=getClosestMirnov(IcPositions_P[0][fil],IcPositions_P[1][fil])
+
+        line12.set_xdata(IcPositions_P[0])
+        line12.set_ydata(IcPositions_P[1])
+        line13.set_xdata(IcPositions_P[0][fil])
+        line13.set_ydata(IcPositions_P[1][fil])
+
+        dataArr1=np.asarray(mirnovs_P)[:,10:]*1e6
+        dataArr2=bPolTot2_P.T*1e6
+        for i, k in zip(range(closestMirnov-1,closestMirnov+2),range(3)):
+            if i ==-1: i=11
+            if i == 12: i=0
+            line21[k].set_ydata(dataArr1[i,:])
+            line22[k].set_ydata(dataArr2[i,:])
+            fig2[k].canvas.draw()
+            fig2[k].canvas.flush_events()
+
+        dataArr1=np.asarray(mirnovs_H)[:,10:]*1e6
+        dataArr2=bPolTot2_H.T*1e6
+        for i, k in zip(range(closestMirnov-1,closestMirnov+2),range(3)):
+            if i ==-1: i=11
+            if i == 12: i=0
+            line31[k].set_ydata(dataArr1[i,:])
+            line32[k].set_ydata(dataArr2[i,:])
+            fig3[k].canvas.draw()
+            fig3[k].canvas.flush_events()
+
 
         fig1.canvas.draw()
         fig1.canvas.flush_events()
