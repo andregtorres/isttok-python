@@ -23,7 +23,7 @@ import magnetic_flux_fields as mf
 # ISTTOK Geometric parameters
 from isttok_magnetics import isttok_mag, isttok_mag_1, isttok_mag_2
 from getSdasSignal import getSignal
-from getMirnov import FsamplingMARTe, ch_prim, ch_hor, getMirnovInt, plotAllPoloid, plotAllPoloid2
+from getMirnov import FsamplingMARTe, ch_prim, ch_hor, ch_vert, getMirnovInt, plotAllPoloid, plotAllPoloid2
 from StartSdas import StartSdas
 import keyboard
 
@@ -64,7 +64,7 @@ def buildLtiModelB(RIc, ZIc, isttok_mag, Rc_):
             Mcc[i,j] = mf.mutualL(RIc[i], ZIc[i],RIc[j], ZIc[j])
             Mcc[j,i] = Mcc[i,j]
 
-    for i in range(ns):
+    for i in range(nc):
         for k in range(len(isttok_mag['TurnsPfcVer'])):
             Mcs[i,0] += isttok_mag['TurnsPfcVer'][k] * mf.mutualL(isttok_mag['RPfcVer'][k], isttok_mag['ZPfcVer'][k], RIc[i], ZIc[i])
         for k in range(len(isttok_mag['TurnsPfcHor'])):
@@ -99,7 +99,6 @@ def buildIs2BpolB(isttok_mag):
     ns = 3 # number of PFC active independent coils circuits (sources)
     #       number of poloidal probes
     nPrb = isttok_mag['nPrb']
-
     Rprb = isttok_mag['Rprb']
     Zprb = isttok_mag['Zprb']
     tethaProb = isttok_mag['tethaPrb']
@@ -248,15 +247,23 @@ if __name__ == "__main__":
     client=StartSdas()
     shotP=44501
     shotH=44330
+    shotV=44278
     #%matplotlib qt4
     times, mirnovs_P = getMirnovInt(client, shotP, 'Post')
     times, mirnovs_H = getMirnovInt(client, shotH, 'Post')
+    times, mirnovs_V = getMirnovInt(client, shotV, 'Post')
 
     timesp,Ip_prim, tbs = getSignal(client, ch_prim, shotP )
     timesp,Ip_hor, tbs = getSignal(client, ch_hor, shotP )
+    timesp,Ip_vert, tbs = getSignal(client, ch_vert, shotP )
 
     timesh,Ih_prim, tbs = getSignal(client, ch_prim, shotH )
     timesh,Ih_hor, tbs = getSignal(client, ch_hor, shotH)
+    timesh,Ih_vert, tbs = getSignal(client, ch_vert, shotH)
+
+    timesv,Iv_prim, tbs = getSignal(client, ch_prim, shotV )
+    timesv,Iv_hor, tbs = getSignal(client, ch_hor, shotV)
+    timesv,Iv_vert, tbs = getSignal(client, ch_vert, shotV)
 
     np.set_printoptions(precision=3)
 
@@ -265,15 +272,20 @@ if __name__ == "__main__":
     aCopper = 10.0e-3  # 'wire' radius 10 mm
 
     currPrim_P = Ip_prim[10:]
-    currHor_P=Ip_hor[10:]
-    currVert_P = np.zeros_like(currPrim_P)
+    currHor_P= Ip_hor[10:]
+    currVert_P = Ip_vert[10:]
 
     currPrim_H  = Ih_prim[10:]
     currHor_H   = Ih_hor[10:]
-    currVert_H  = np.zeros_like(currPrim_H)
+    currVert_H  = Ih_vert[10:]
+
+    currPrim_V  = Iv_prim[10:]
+    currHor_V   = Iv_hor[10:]
+    currVert_V  = -Iv_vert[10:]
 
     IsPfc_P = np.array([currVert_P, currHor_P, currPrim_P])
     IsPfc_H = np.array([currVert_H, currHor_H, currPrim_H])
+    IsPfc_V = np.array([currVert_V, currHor_V, currPrim_V])
 
     def allowedAngle(a):
         if a <20: return False
@@ -298,16 +310,19 @@ if __name__ == "__main__":
     timeN_P=time_P/timesp[-1] # times normalize
     time_H = timesh[10:]  #trim negative
     timeN_H=time_H/timesh[-1] # times normalize
-
+    time_V = timesv[10:]  #trim negative
+    timeN_V=time_V/timesv[-1] # times normalize
 
     # diagonal Resistance matrix Rc
     Rc = np.diag([1.0]*nc) #* ResCopper
 
     bPolTot2_P, IcPositions_P, ic_P =fullModel(IsPfc_P, anglesIc, Rc, timeN_P)
     bPolTot2_H, IcPositions_H, ic_H =fullModel(IsPfc_H, anglesIc, Rc, timeN_H)
+    bPolTot2_V, IcPositions_V, ic_V =fullModel(IsPfc_V, anglesIc, Rc, timeN_V)
 
     directions_P=getIcSignal(ic_P)
     directions_H=getIcSignal(ic_H)
+    directions_V=getIcSignal(ic_V)
 
     print("START")
     plt.ion()
@@ -324,8 +339,8 @@ if __name__ == "__main__":
     ax2=[]
     line21=[]
     line22=[]
-    dataArr1=np.asarray(mirnovs_P)[:,10:]*1e6
-    dataArr2=bPolTot2_P.T*1e6
+    dataArr1=np.asarray(mirnovs_V)[:,10:]*1e6
+    dataArr2=bPolTot2_V.T*1e6
     for i, k in zip(range(closestMirnov-1,closestMirnov+2),range(3)):
         if i ==-1: i=11
         if i == 12: i=0
@@ -334,8 +349,8 @@ if __name__ == "__main__":
         ax.set_ylim([-13,13])
         ax2.append(ax)
         plt.tight_layout()
-        l21,=ax2[k].plot(time_P*1e-3, dataArr1[i,:])
-        l22,=ax2[k].plot(time_P*1e-3, dataArr2[i,:])
+        l21,=ax2[k].plot(time_V*1e-3, dataArr1[i,:])
+        l22,=ax2[k].plot(time_V*1e-3, dataArr2[i,:])
         line21.append(l21)
         line22.append(l22)
 
@@ -344,8 +359,8 @@ if __name__ == "__main__":
     ax3=[]
     line31=[]
     line32=[]
-    dataArr1=np.asarray(mirnovs_H)[:,10:]*1e6
-    dataArr2=bPolTot2_H.T*1e6
+    dataArr1=np.asarray(mirnovs_P)[:,10:]*1e6
+    dataArr2=bPolTot2_P.T*1e6
     for i, k in zip(range(closestMirnov-1,closestMirnov+2),range(3)):
         if i ==-1: i=11
         if i == 12: i=0
@@ -354,8 +369,8 @@ if __name__ == "__main__":
         ax.set_ylim([-13,13])
         ax3.append(ax)
         plt.tight_layout()
-        l31,=ax3[k].plot(time_H*1e-3, dataArr1[i,:])
-        l32,=ax3[k].plot(time_H*1e-3, dataArr2[i,:])
+        l31,=ax3[k].plot(time_P*1e-3, dataArr1[i,:])
+        l32,=ax3[k].plot(time_P*1e-3, dataArr2[i,:])
         line31.append(l31)
         line32.append(l32)
 
@@ -368,7 +383,7 @@ if __name__ == "__main__":
             print ("filament:", fil)
             print ("angles:", np.degrees(anglesIc))
             print ("Rc:", np.diag(Rc))
-            print ("directionsP:",directions_P)
+            print ("directionsV:",directions_V)
             print ("directionsH:",directions_H)
 
         elif key=="a":
@@ -386,27 +401,27 @@ if __name__ == "__main__":
         elif key=="c":
             anglesIc[fil]-=0.05
         elif key=="f":
-            Rc[fil][fil]+=0.05
+            Rc[fil][fil]+=0.5
         elif key=="v":
-            Rc[fil][fil]-=0.05
+            Rc[fil][fil]-=0.5
 
 
 
+        bPolTot2_V, IcPositions_V, ic_V =fullModel(IsPfc_V, anglesIc, Rc, timeN_V)
         bPolTot2_P, IcPositions_P, ic_P =fullModel(IsPfc_P, anglesIc, Rc, timeN_P)
-        bPolTot2_H, IcPositions_H, ic_H =fullModel(IsPfc_H, anglesIc, Rc, timeN_H)
 
+        directions_V=getIcSignal(ic_V)
         directions_P=getIcSignal(ic_P)
-        directions_H=getIcSignal(ic_H)
 
-        closestMirnov=getClosestMirnov(IcPositions_P[0][fil],IcPositions_P[1][fil])
+        closestMirnov=getClosestMirnov(IcPositions_V[0][fil],IcPositions_V[1][fil])
 
-        line12.set_xdata(IcPositions_P[0])
-        line12.set_ydata(IcPositions_P[1])
-        line13.set_xdata(IcPositions_P[0][fil])
-        line13.set_ydata(IcPositions_P[1][fil])
+        line12.set_xdata(IcPositions_V[0])
+        line12.set_ydata(IcPositions_V[1])
+        line13.set_xdata(IcPositions_V[0][fil])
+        line13.set_ydata(IcPositions_V[1][fil])
 
-        dataArr1=np.asarray(mirnovs_P)[:,10:]*1e6
-        dataArr2=bPolTot2_P.T*1e6
+        dataArr1=np.asarray(mirnovs_V)[:,10:]*1e6
+        dataArr2=bPolTot2_V.T*1e6
         for i, k in zip(range(closestMirnov-1,closestMirnov+2),range(3)):
             if i ==-1: i=11
             if i == 12: i=0
@@ -415,8 +430,8 @@ if __name__ == "__main__":
             fig2[k].canvas.draw()
             fig2[k].canvas.flush_events()
 
-        dataArr1=np.asarray(mirnovs_H)[:,10:]*1e6
-        dataArr2=bPolTot2_H.T*1e6
+        dataArr1=np.asarray(mirnovs_P)[:,10:]*1e6
+        dataArr2=bPolTot2_P.T*1e6
         for i, k in zip(range(closestMirnov-1,closestMirnov+2),range(3)):
             if i ==-1: i=11
             if i == 12: i=0
